@@ -24,6 +24,7 @@ const venues = [];
 const events = [];
 const athletes = [];
 const performances = [];
+const meetings = [];
 
 const getData = async () => {
     let cells;
@@ -97,10 +98,17 @@ const getData = async () => {
                 .first()
                 .find("tr");
 
+            // go through each row on the performances table and create a performance object to relate
             // rows.each((i, row) => {
-            for (let j = 0; j < 3; j++) {
+            for (let j = 0; j < 14; j++) {
                 const row = rows[j];
+                cells = $(row).find("td");
+                // skip those rows which are season headings
+                if ($(cells[0]).html() !== $(cells[0]).text()) {
+                    continue;
+                }
                 performance = {
+                    athleteId,
                     eventId: 0,
                     performance: 0,
                     tags: "",
@@ -111,13 +119,6 @@ const getData = async () => {
                     meeting: "",
                     date: 0,
                 };
-                performance.athleteId = athleteId;
-                cells = $(row).find("td");
-                // skip those rows which are season headings
-                if ($(cells[0]).html() !== $(cells[0]).text()) {
-                    continue;
-                }
-
                 // go through each cell in the row and add that to a performance object
                 cells.each((i, cell) => {
                     switch (i) {
@@ -130,14 +131,21 @@ const getData = async () => {
                             performance.performance =
                                 parsePerformanceFromString($(cell).text());
                             break;
+                        case 2:
+                            performance.tags = $(cell).text().split("");
+                            break;
+                        case 3:
+                            performance.wind = parseWindReading($(cell).text());
+                            break;
                         case 5:
                             performance.position = parseInt($(cell).text());
                             break;
                         case 9:
                             // get meetingId and venueId from the link in the "Venue" column
-                            performance.meetingId = parseMeetingIdFromLink(
-                                $(cell).html()
+                            performance.meetingId = parseMeetingFromLink(
+                                $(cell)
                             );
+                            performance.meeting = $(cell).text();
                             performance.venueId = parseVenueFromString(
                                 $(cell).text(),
                                 performance.tags
@@ -148,7 +156,7 @@ const getData = async () => {
                             performance.date =
                                 parseDateFromString($(cell).text()) + j;
                             break;
-                        case (2, 3, 6, 10):
+                        case (6, 10):
                             if ($(cell).text()) {
                                 performance[performanceFields[i]] =
                                     $(cell).text();
@@ -169,10 +177,10 @@ const getData = async () => {
     // remove those performances which are "blank" i.e. the
 
     // write data to file
-    // writeDataToFile("athletes", athletes);
+    writeDataToFile("athletes", athletes);
     writeDataToFile("performances", performances);
-    // writeDataToFile("venues", venues);
-    // writeDataToFile("events", events);
+    writeDataToFile("venues", venues);
+    writeDataToFile("events", events);
 };
 
 const writeDataToFile = (file, newData) => {
@@ -256,8 +264,23 @@ const parseEventFromString = (event) => {
     return newEventId;
 };
 
+const parseMeetingFromLink = (cell) => {
+    const name = cell.text();
+    const id = parseMeetingIdFromLink(cell.html());
+    for (i in meetings) {
+        if (meetings[i].id === id) {
+            return id;
+        }
+    }
+    meetings.push({ id, name });
+    return id;
+};
+
 const parseMeetingIdFromLink = (link) => {
     return parseInt(link.split("meetingid=")[1].split("&amp;")[0]);
 };
+
+const parseWindReading = (windReading) =>
+    windReading === "" ? 0 : parseFloat(windReading);
 
 getData();
