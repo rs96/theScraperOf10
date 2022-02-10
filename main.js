@@ -1,5 +1,4 @@
 const axios = require("axios");
-const HTMLParser = require("node-html-parser");
 const cheerio = require("cheerio");
 const fs = require("fs");
 const athleteURL =
@@ -26,149 +25,37 @@ const athletes = [];
 const performances = [];
 const meetings = [];
 
+// const performanceFields = [
+//     "eventId",
+//     "performance",
+//     "tags",
+//     "wind",
+//     "something1",
+//     "position",
+//     "heat",
+//     "something2",
+//     "something3",
+//     "venueId",
+//     "meeting",
+//     "date",
+// ];
+
 const getData = async () => {
     let cells;
     let athlete;
     let performance;
-    const performanceFields = [
-        "eventId",
-        "performance",
-        "tags",
-        "wind",
-        "something1",
-        "position",
-        "heat",
-        "something2",
-        "something3",
-        "venueId",
-        "meeting",
-        "date",
-    ];
-    let venue;
 
     for (let athleteId = 78994; athleteId < 78995; athleteId++) {
         try {
             if (athleteId % 10 === 0) {
                 console.log(`${athleteId} athletes scraped`);
             }
-            // get page from website
-            const $ = cheerio.load(
-                await getPo10AthletePage(athleteId)
-                    .then((po10page) => po10page.data, "text/html")
-                    .catch((error) => console.log(error))
-            );
 
-            // scrape page for athlete details
-            athlete = {};
-            const dataList = [];
-            $("#cphBody_pnlAthleteDetails")
-                .find("td")
-                .each((i, element) => {
-                    if (
-                        $(element).html().replace("&amp;", "&") ===
-                        $(element).text()
-                    ) {
-                        dataList.push($(element).text());
-                    }
-                });
+            const athleteData = await getAthleteData(athleteId);
 
-            athlete["id"] = athleteId;
-            athlete["name"] = $("h2").first().text().trim();
-
-            if (dataList[0] == "Yes") {
-                athlete["club"] = dataList[1];
-                athlete["sex"] = dataList[2];
-                athlete["age_group"] = dataList[3];
-                athlete["county"] = dataList[4];
-                athlete["region"] = dataList[5];
-                athlete["nation"] = dataList[6];
-            } else {
-                athlete["club"] = dataList[0];
-                athlete["sex"] = dataList[1];
-                athlete["age_group"] = dataList[2];
-                athlete["county"] = dataList[3];
-                athlete["region"] = dataList[4];
-                athlete["nation"] = dataList[5];
-            }
-            athletes.push(athlete);
-
-            // scrape page for performances
-            let rows = $("#cphBody_pnlPerformances")
-                .find(".alternatingrowspanel")
-                .first()
-                .find("tr");
-
-            // go through each row on the performances table and create a performance object to relate
-            // rows.each((i, row) => {
-            for (let j = 0; j < 14; j++) {
-                const row = rows[j];
-                cells = $(row).find("td");
-                // skip those rows which are season headings
-                if ($(cells[0]).html() !== $(cells[0]).text()) {
-                    continue;
-                }
-                performance = {
-                    athleteId,
-                    eventId: 0,
-                    performance: 0,
-                    tags: "",
-                    wind: "",
-                    position: 0,
-                    heat: "",
-                    venueId: 0,
-                    meeting: "",
-                    date: 0,
-                };
-                // go through each cell in the row and add that to a performance object
-                cells.each((i, cell) => {
-                    switch (i) {
-                        case 0:
-                            performance.eventId = parseEventFromString(
-                                $(cell).text()
-                            );
-                            break;
-                        case 1:
-                            performance.performance =
-                                parsePerformanceFromString($(cell).text());
-                            break;
-                        case 2:
-                            performance.tags = $(cell).text().split("");
-                            break;
-                        case 3:
-                            performance.wind = parseWindReading($(cell).text());
-                            break;
-                        case 5:
-                            performance.position = parseInt($(cell).text());
-                            break;
-                        case 9:
-                            // get meetingId and venueId from the link in the "Venue" column
-                            performance.meetingId = parseMeetingFromLink(
-                                $(cell)
-                            );
-                            performance.meeting = $(cell).text();
-                            performance.venueId = parseVenueFromString(
-                                $(cell).text(),
-                                performance.tags
-                            );
-                            break;
-                        case 11:
-                            // we add i as date is used for ids in the app that uses this dataset
-                            performance.date =
-                                parseDateFromString($(cell).text()) + j;
-                            break;
-                        case (6, 10):
-                            if ($(cell).text()) {
-                                performance[performanceFields[i]] =
-                                    $(cell).text();
-                            }
-                            break;
-                        default:
-                            break;
-                    }
-                });
-                // need to add a check that performance matches the correct format
-                performances.push(performance);
-            }
+            // need to add a check that performance matches the correct format
+            athletes.push(athleteData.athlete);
+            performances.push(...athleteData.performances);
         } catch (error) {
             console.log(error);
         }
@@ -194,6 +81,122 @@ const writeDataToFile = (file, newData) => {
             console.log("File Written");
         });
     });
+};
+
+const getAthleteData = async (athleteId) => {
+    // get page from website
+    const $ = cheerio.load(
+        await getPo10AthletePage(athleteId)
+            .then((po10page) => po10page.data, "text/html")
+            .catch((error) => console.log(error))
+    );
+
+    // scrape page for athlete details
+    athlete = {};
+    const dataList = [];
+    $("#cphBody_pnlAthleteDetails")
+        .find("td")
+        .each((i, element) => {
+            if ($(element).html().replace("&amp;", "&") === $(element).text()) {
+                dataList.push($(element).text());
+            }
+        });
+
+    athlete["id"] = athleteId;
+    athlete["name"] = $("h2").first().text().trim();
+
+    if (dataList[0] == "Yes") {
+        athlete["club"] = dataList[1];
+        athlete["sex"] = dataList[2];
+        athlete["age_group"] = dataList[3];
+        athlete["county"] = dataList[4];
+        athlete["region"] = dataList[5];
+        athlete["nation"] = dataList[6];
+    } else {
+        athlete["club"] = dataList[0];
+        athlete["sex"] = dataList[1];
+        athlete["age_group"] = dataList[2];
+        athlete["county"] = dataList[3];
+        athlete["region"] = dataList[4];
+        athlete["nation"] = dataList[5];
+    }
+
+    // scrape page for performances
+    let rows = $("#cphBody_pnlPerformances")
+        .find(".alternatingrowspanel")
+        .first()
+        .find("tr");
+
+    // go through each row on the performances table and create a performance object to relate
+    // rows.each((i, row) => {
+    for (let j = 0; j < 14; j++) {
+        const row = rows[j];
+        cells = $(row).find("td");
+        // skip those rows which are season headings
+        if ($(cells[0]).html() !== $(cells[0]).text()) {
+            continue;
+        }
+        performance = {
+            athleteId,
+            eventId: 0,
+            performance: 0,
+            tags: "",
+            wind: "",
+            position: 0,
+            heat: "",
+            venueId: 0,
+            meeting: "",
+            date: 0,
+        };
+        // go through each cell in the row and add that to a performance object
+        cells.each((i, cell) => {
+            switch (i) {
+                case 0:
+                    performance.eventId = parseEventFromString($(cell).text());
+                    break;
+                case 1:
+                    performance.performance = parsePerformanceFromString(
+                        $(cell).text()
+                    );
+                    break;
+                case 2:
+                    performance.tags = $(cell).text().split("");
+                    break;
+                case 3:
+                    performance.wind = parseWindReading($(cell).text());
+                    break;
+                case 5:
+                    performance.position = parseInt($(cell).text());
+                    break;
+                case 9:
+                    // get meetingId and venueId from the link in the "Venue" column
+                    performance.meetingId = parseMeetingFromLink($(cell));
+                    performance.meeting = $(cell).text();
+                    performance.venueId = parseVenueFromString(
+                        $(cell).text(),
+                        performance.tags
+                    );
+                    break;
+                case 11:
+                    // we add i as date is used for ids in the app that uses this dataset
+                    performance.date = parseDateFromString($(cell).text()) + j;
+                    break;
+                case 6:
+                    if ($(cell).text()) {
+                        performance.heat = $(cell).text();
+                    }
+                    break;
+                case 10:
+                    if ($(cell).text()) {
+                        performance.meeting = $(cell).text();
+                    }
+                    break;
+                default:
+                    break;
+            }
+        });
+    }
+    return { athlete, performances };
 };
 
 const parseDateFromString = (value) => {
