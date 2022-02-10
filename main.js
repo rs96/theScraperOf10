@@ -4,6 +4,7 @@ const cheerio = require("cheerio");
 const fs = require("fs");
 const athleteURL =
     "https://www.thepowerof10.info/athletes/profile.aspx?athleteid=";
+const constants = require("./constants");
 
 const getPo10AthletePage = async (athleteId) => {
     try {
@@ -97,15 +98,15 @@ const getData = async () => {
                 .find("tr");
 
             // rows.each((i, row) => {
-            for (let i = 0; i < 3; i++) {
-                const row = rows[i];
+            for (let j = 0; j < 3; j++) {
+                const row = rows[j];
                 performance = {
                     eventId: 0,
                     performance: 0,
                     tags: "",
                     wind: "",
                     position: 0,
-                    heat: 0,
+                    heat: "",
                     venueId: 0,
                     meeting: "",
                     date: 0,
@@ -129,21 +130,30 @@ const getData = async () => {
                             performance.performance =
                                 parsePerformanceFromString($(cell).text());
                             break;
+                        case 5:
+                            performance.position = parseInt($(cell).text());
+                            break;
                         case 9:
                             // get meetingId and venueId from the link in the "Venue" column
-                            performance.meetingId = parseInt(
-                                $(cell)
-                                    .html()
-                                    .split("meetingid=")[1]
-                                    .split("&amp;")[0]
-                            );
-                            performance["venueId"] = parseVenueFromString(
+                            performance.meetingId =
+                                parseMeetingIdFromCell(cell);
+                            performance.venueId = parseVenueFromString(
                                 $(cell).text(),
-                                performance["tags"]
+                                performance.tags
                             );
                             break;
+                        case 11:
+                            // we add i as date is used for ids in the app that uses this dataset
+                            performance.date =
+                                parseDateFromString($(cell).text()) + j;
+                            break;
+                        case (2, 3, 6, 10):
+                            if ($(cell).text()) {
+                                performance[performanceFields[i]] =
+                                    $(cell).text();
+                            }
+                            break;
                         default:
-                            performance[performanceFields[i]] = $(cell).text();
                             break;
                     }
                 });
@@ -158,7 +168,7 @@ const getData = async () => {
     // remove those performances which are "blank" i.e. the
 
     // write data to file
-    writeDataToFile("athletes", athletes);
+    // writeDataToFile("athletes", athletes);
     writeDataToFile("performances", performances);
     // writeDataToFile("venues", venues);
     // writeDataToFile("events", events);
@@ -177,14 +187,14 @@ const writeDataToFile = (file, newData) => {
     });
 };
 
-const parsePerformanceFieldValueFromString = (index, value) => {
-    if (index === 0) {
-        return parseEventFromString(value);
-    } else if (index === 1) {
-        // is performance
-        return parsePerformanceFromString(value);
-    }
-    return value;
+const parseDateFromString = (value) => {
+    const [day, month, year] = value.split(" ");
+    const date = new Date(
+        `20${year}-${month < 10 ? "0" : ""}${month}-${
+            day < 10 ? "0" : ""
+        }${day}`
+    );
+    return date.valueOf();
 };
 
 const parsePerformanceFromString = (performance) => {
@@ -229,6 +239,10 @@ const parseEventFromString = (event) => {
     let newEventId = events.length + 1;
     events.push({ id: newEventId, name: event });
     return newEventId;
+};
+
+const parseMeetingIdFromCell = (cell) => {
+    return parseInt($(cell).html().split("meetingid=")[1].split("&amp;")[0]);
 };
 
 getData();
