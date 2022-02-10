@@ -135,8 +135,9 @@ const getData = async () => {
                             break;
                         case 9:
                             // get meetingId and venueId from the link in the "Venue" column
-                            performance.meetingId =
-                                parseMeetingIdFromCell(cell);
+                            performance.meetingId = parseMeetingIdFromLink(
+                                $(cell).html()
+                            );
                             performance.venueId = parseVenueFromString(
                                 $(cell).text(),
                                 performance.tags
@@ -198,10 +199,24 @@ const parseDateFromString = (value) => {
 };
 
 const parsePerformanceFromString = (performance) => {
-    const stringParts = performance.split(":");
-    stringParts[0] = parseFloat(stringParts[0]) * 60;
-    stringParts[1] = parseFloat(stringParts[1]);
-    return stringParts[0] + stringParts[1];
+    let value = 0;
+    let splitStrings;
+    let rest;
+    splitStrings = performance.split(":");
+    if (splitStrings.length > 1) {
+        value = parseFloat(splitStrings[0]) * 60;
+        rest = splitStrings[1];
+    } else {
+        rest = splitStrings[0];
+    }
+    const [secs, hundredths] = rest.split(".");
+    if (secs) {
+        value = value + parseFloat(secs);
+    }
+    if (hundredths) {
+        value = value + parseFloat(hundredths) / 100;
+    }
+    return value;
 };
 
 const parseVenueFromString = (venue, tags) => {
@@ -241,8 +256,8 @@ const parseEventFromString = (event) => {
     return newEventId;
 };
 
-const parseMeetingIdFromCell = (cell) => {
-    return parseInt($(cell).html().split("meetingid=")[1].split("&amp;")[0]);
+const parseMeetingIdFromLink = (link) => {
+    return parseInt(link.split("meetingid=")[1].split("&amp;")[0]);
 };
 
 getData();
