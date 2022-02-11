@@ -67,6 +67,7 @@ const getData = async () => {
     writeDataToFile("performances", performances);
     writeDataToFile("venues", venues);
     writeDataToFile("events", events);
+    writeDataToFile("meetings", meetings);
 };
 
 const writeDataToFile = (file, newData) => {
@@ -102,20 +103,20 @@ const getAthleteData = async (athleteId) => {
             }
         });
 
-    athlete["id"] = athleteId;
+    athlete["id"] = athleteId.toString();
     athlete["name"] = $("h2").first().text().trim();
 
     if (dataList[0] == "Yes") {
         athlete["club"] = dataList[1];
         athlete["sex"] = dataList[2];
-        athlete["age_group"] = dataList[3];
+        athlete["ageGroup"] = dataList[3];
         athlete["county"] = dataList[4];
         athlete["region"] = dataList[5];
         athlete["nation"] = dataList[6];
     } else {
         athlete["club"] = dataList[0];
         athlete["sex"] = dataList[1];
-        athlete["age_group"] = dataList[2];
+        athlete["ageGroup"] = dataList[2];
         athlete["county"] = dataList[3];
         athlete["region"] = dataList[4];
         athlete["nation"] = dataList[5];
@@ -251,7 +252,7 @@ const parseVenueFromString = (venue, tags) => {
     }
     let newVenueId = venues.length + 1;
     venues.push({
-        id: newVenueId,
+        id: newVenueId.toString(),
         name: venue,
         isIndoor: isIndoor,
         isOversized: isOversized,
@@ -268,7 +269,7 @@ const parseEventFromString = (event) => {
     }
     // add new event to list if not existing
     let newEventId = events.length + 1;
-    events.push({ id: newEventId, name: event });
+    events.push({ id: newEventId.toString(), name: event });
     return newEventId;
 };
 
@@ -276,7 +277,7 @@ const handleMeetingCreation = (id, name) => {
     if (meetings.find((meeting) => meeting.id === id)) {
         return;
     }
-    meetings.push({ id, name });
+    meetings.push({ id: id.toString(), name });
 };
 
 const parseMeetingIdFromLink = (link) =>
