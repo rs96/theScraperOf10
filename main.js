@@ -3,7 +3,6 @@ const cheerio = require("cheerio");
 const fs = require("fs");
 const athleteURL =
     "https://www.thepowerof10.info/athletes/profile.aspx?athleteid=";
-const constants = require("./constants");
 
 const getPo10AthletePage = async (athleteId) => {
     try {
@@ -84,6 +83,7 @@ const writeDataToFile = (file, newData) => {
 };
 
 const getAthleteData = async (athleteId) => {
+    let performances = [];
     // get page from website
     const $ = cheerio.load(
         await getPo10AthletePage(athleteId)
@@ -148,6 +148,7 @@ const getAthleteData = async (athleteId) => {
             meeting: "",
             date: 0,
         };
+        let meetingId;
         // go through each cell in the row and add that to a performance object
         cells.each((i, cell) => {
             switch (i) {
@@ -170,8 +171,8 @@ const getAthleteData = async (athleteId) => {
                     break;
                 case 9:
                     // get meetingId and venueId from the link in the "Venue" column
-                    performance.meetingId = parseMeetingFromLink($(cell));
-                    performance.meeting = $(cell).text();
+                    meetingId = parseMeetingIdFromLink($(cell).html());
+                    performance.meetingId = meetingId;
                     performance.venueId = parseVenueFromString(
                         $(cell).text(),
                         performance.tags
@@ -187,16 +188,20 @@ const getAthleteData = async (athleteId) => {
                     }
                     break;
                 case 10:
-                    if ($(cell).text()) {
-                        performance.meeting = $(cell).text();
-                    }
+                    performance.meeting = $(cell).text();
+                    // if new meeting is added, this is the actual meeting name to add, not the venue id
+                    handleMeetingCreation(
+                        performance.meetingId,
+                        $(cell).text()
+                    );
                     break;
                 default:
                     break;
             }
         });
+        performances.push(performance);
     }
-    return { athlete, performances };
+    return { athlete, performances, venues, meetings, events };
 };
 
 const parseDateFromString = (value) => {
@@ -267,16 +272,11 @@ const parseEventFromString = (event) => {
     return newEventId;
 };
 
-const parseMeetingFromLink = (cell) => {
-    const name = cell.text();
-    const id = parseMeetingIdFromLink(cell.html());
-    for (i in meetings) {
-        if (meetings[i].id === id) {
-            return id;
-        }
+const handleMeetingCreation = (id, name) => {
+    if (meetings.find((meeting) => meeting.id === id)) {
+        return;
     }
     meetings.push({ id, name });
-    return id;
 };
 
 const parseMeetingIdFromLink = (link) => {
@@ -286,4 +286,6 @@ const parseMeetingIdFromLink = (link) => {
 const parseWindReading = (windReading) =>
     windReading === "" ? 0 : parseFloat(windReading);
 
-getData();
+module.exports = {
+    getAthleteData,
+};
