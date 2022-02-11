@@ -279,9 +279,8 @@ const handleMeetingCreation = (id, name) => {
     meetings.push({ id, name });
 };
 
-const parseMeetingIdFromLink = (link) => {
-    return parseInt(link.split("meetingid=")[1].split("&amp;")[0]);
-};
+const parseMeetingIdFromLink = (link) =>
+    parseInt(link.split("meetingid=")[1].split("&amp;")[0]);
 
 const parseWindReading = (windReading) =>
     windReading === "" ? 0 : parseFloat(windReading);
