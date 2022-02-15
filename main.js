@@ -3,11 +3,27 @@ const cheerio = require("cheerio");
 const fs = require("fs");
 const athleteURL =
     "https://www.thepowerof10.info/athletes/profile.aspx?athleteid=";
+const rankingURL = (event, year) =>
+    `https://thepowerof10.info/rankings/rankinglist.aspx?event=${event}&agegroup=ALL&sex=M&year=${year}`;
 
 const getPo10AthletePage = async (athleteId) => {
     try {
         const res = await axios({
             url: `${athleteURL}${athleteId}`,
+            method: "get",
+            timeout: 8000,
+            headers: { "Access-Control-Allow-Origin": "*" },
+        });
+        return res;
+    } catch (error) {
+        console.log(error);
+    }
+};
+
+const getPo10RankingsPage = async (event, year) => {
+    try {
+        const res = await axios({
+            url: rankingURL(event, year),
             method: "get",
             timeout: 8000,
             headers: { "Access-Control-Allow-Origin": "*" },
@@ -40,10 +56,6 @@ const meetings = [];
 // ];
 
 const getData = async () => {
-    let cells;
-    let athlete;
-    let performance;
-
     for (let athleteId = 78994; athleteId < 78995; athleteId++) {
         try {
             if (athleteId % 10 === 0) {
@@ -70,16 +82,67 @@ const getData = async () => {
     writeDataToFile("meetings", meetings);
 };
 
-const writeDataToFile = (file, newData) => {
-    fs.readFile(`./data/${file}.json`, (error, existingData) => {
-        let data = JSON.parse(existingData);
-        data = data.concat(newData);
-        fs.writeFile(`./data/${file}.json`, JSON.stringify(data), (error) => {
-            if (error) {
+const getSeasonEventOverview = async (event, year) => {
+    const $ = cheerio.load(
+        await getPo10RankingsPage(event, year)
+            .then((po10page) => po10page.data, "text/html")
+            .catch((error) => console.log(error))
+    );
+
+    let rows = $("#cphBody_lblCachedRankingList")
+        .find("tbody")
+        .first()
+        .find("tr");
+
+    for (let i = 0; i < 10; i++) {
+        const row = rows[i];
+        cells = $(row).find("td");
+        // skip those rows which are season headings, target banners etc.
+        // and those windy/handtimed/alternative bests
+        if (
+            $(cells[0]).html() !== $(cells[0]).text() ||
+            cells.length < 2 ||
+            $(cells[0]).text() === ""
+        ) {
+            continue;
+        } else {
+            try {
+                const id = parseInt($(cells[6]).html().split("athleteid=")[1]);
+                console.log({ i, id });
+                const athleteData = await getAthleteData(id);
+                // need to add a check that performance matches the correct format
+                athletes.push(athleteData.athlete);
+                performances.push(...athleteData.performances);
+            } catch (error) {
                 console.log(error);
             }
-            console.log("File Written");
-        });
+        }
+    }
+
+    // remove those performances which are "blank" i.e. the
+
+    // write data to file
+    writeDataToFile("athletes", athletes);
+    writeDataToFile("performances", performances);
+    writeDataToFile("venues", venues);
+    writeDataToFile("events", events);
+    writeDataToFile("meetings", meetings);
+};
+
+const writeDataToFile = (file, newData) => {
+    fs.readFile(`./data/2012/${file}.json`, (error, existingData) => {
+        let data = JSON.parse(existingData);
+        data = data.concat(newData);
+        fs.writeFile(
+            `./data/2012/${file}.json`,
+            JSON.stringify(data),
+            (error) => {
+                if (error) {
+                    console.log(error);
+                }
+                console.log("File Written");
+            }
+        );
     });
 };
 
@@ -289,3 +352,5 @@ const parseWindReading = (windReading) =>
 module.exports = {
     getAthleteData,
 };
+
+getSeasonEventOverview(400, 2012);
